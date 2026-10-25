@@ -222,7 +222,7 @@ input.field:focus{border-color:var(--red)}
   }
 
   var BLOCK="ability-share-relblocked", FILE_MAX=70*1024*1024; // browsers can't reach uploads.github.com, so fall back to repo files (about 70 MB)
-  var files=[], branch=null, blocked=false;
+  var files=[], branch=null, blocked=false, recent={}, gone={}; // recent/gone cover GitHub's slightly stale listings
   try{blocked=localStorage.getItem(BLOCK)==="1"}catch(e){}
 
   function setLimit(){
@@ -250,9 +250,37 @@ input.field:focus{border-color:var(--red)}
   }
 
   function entries(){
-    var a=files.slice().reverse().map(function(f){return {kind:"file",name:f.name,size:f.size,sha:f.sha,url:rawUrl(f.name)}});
-    var b=assets.map(function(x){return {kind:"release",id:x.id,name:x.name,size:x.size,date:x.created_at,url:x.browser_download_url}});
-    return a.concat(b);
+    var now=Date.now(), seen={}, out=[];
+    function item(f){return {kind:"file",name:f.name,size:f.size,sha:f.sha,url:rawUrl(f.name)}}
+    files.slice().reverse().forEach(function(f){seen[f.name]=1;out.push(item(f))});
+    Object.keys(recent).forEach(function(n){if(!seen[n])out.unshift(item(recent[n]))});
+    assets.forEach(function(x){out.push({kind:"release",id:x.id,name:x.name,size:x.size,date:x.created_at,url:x.browser_download_url})});
+    return out.filter(function(e){var t=gone[e.kind+":"+(e.id||e.name)];return !(t&&now-t<120000)});
+  }
+
+  function doDelete(f){
+    if(f.kind==="release"){
+      return fetch(API+"/repos/"+cfg.repo+"/releases/assets/"+f.id,{method:"DELETE",headers:hdr()}).then(function(r){
+        if(r.ok||r.status===404)return true;
+        msg(ghErr(r.status));return false;
+      },function(){msg("Couldn't reach GitHub.");return false});
+    }
+    var url=API+"/repos/"+cfg.repo+"/contents/uploads/"+encodeURIComponent(f.name);
+    function attempt(sha){
+      return fetch(url,{method:"DELETE",headers:hdr(true),body:JSON.stringify({message:"Delete "+f.name,sha:sha})});
+    }
+    return attempt(f.sha).then(function(r){
+      if(r.status===409||r.status===422){ // our copy of the file's id was stale, fetch the current one and retry once
+        return fetch(url,{headers:hdr()}).then(function(g){
+          if(g.status===404)return {ok:true,status:404};
+          return okjson(g).then(function(j){return attempt(j.sha)});
+        });
+      }
+      return r;
+    }).then(function(r){
+      if(r.ok||r.status===404)return true;
+      msg(ghErr(r.status));return false;
+    }).catch(function(e){msg(e&&e.status?ghErr(e.status):"Couldn't reach GitHub.");return false});
   }
 
   function render(){
@@ -279,12 +307,14 @@ input.field:focus{border-color:var(--red)}
       var del=document.createElement("button");del.className="btn ghost";del.textContent="Delete";
       del.addEventListener("click",function(){
         if(!confirm("Delete \""+f.name+"\"? The link will stop working for everyone."))return;
-        var req=f.kind==="release"
-          ?fetch(API+"/repos/"+cfg.repo+"/releases/assets/"+f.id,{method:"DELETE",headers:hdr()})
-          :fetch(API+"/repos/"+cfg.repo+"/contents/uploads/"+encodeURIComponent(f.name),{method:"DELETE",headers:hdr(true),body:JSON.stringify({message:"Delete "+f.name,sha:f.sha})});
-        req.then(function(r){
-          if(r.ok||r.status===404){msg("");refresh()}else msg(ghErr(r.status));
-        }).catch(function(){msg("Couldn't reach GitHub.")});
+        del.disabled=true;del.textContent="Deleting\u2026";
+        doDelete(f).then(function(ok){
+          if(ok){
+            gone[f.kind+":"+(f.id||f.name)]=Date.now();delete recent[f.name];render();
+            msg("Deleted. The old link can keep working for a few minutes because GitHub caches downloads.",true);
+            setTimeout(refresh,3000);
+          }else{del.disabled=false;del.textContent="Delete"}
+        });
       });
       row.appendChild(inp);row.appendChild(cp);row.appendChild(op);row.appendChild(del);
       c.appendChild(row);l.appendChild(c);
@@ -346,7 +376,7 @@ input.field:focus{border-color:var(--red)}
         });
       });
     }).then(function(r){
-      if(r.status===201||r.status===200){refreshSoon();return}
+      if(r.status===201||r.status===200){var c=r.json&&r.json.content;if(c)recent[c.name]={name:c.name,size:c.size,sha:c.sha};render();refreshSoon();return}
       if(r.status===0)msg("Couldn't reach GitHub. Check your connection.");
       else if(r.status===403)msg("GitHub says no (HTTP 403). The token needs Contents: Read and write on this repo.");
       else msg(ghErr(r.status));
