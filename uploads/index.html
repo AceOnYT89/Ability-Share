@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0a0506">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Ability Share">
+<link rel="icon" type="image/svg+xml" href="logo.svg">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<title>Ability Share</title>
+<style>
+:root{
+  --bg:#0a0506;--panel:#150b0d;--panel2:#1d1013;--line:#2e1a1e;
+  --red:#ff2d45;--red2:#c4101f;--text:#f6eded;--muted:#a58f93;--ok:#3ddc84;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{-webkit-text-size-adjust:100%}
+html,body{margin:0;touch-action:manipulation;background:var(--bg);color:var(--text);
+  font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+body{min-height:100vh;min-height:100dvh;
+  background:
+    radial-gradient(900px 420px at 85% -10%,rgba(255,45,69,.18),transparent 60%),
+    radial-gradient(700px 380px at -10% 110%,rgba(196,16,31,.16),transparent 60%),
+    var(--bg);
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+.bar{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:12px;
+  padding:12px 18px;padding-top:calc(12px + env(safe-area-inset-top,0px));
+  margin-top:calc(-1*env(safe-area-inset-top,0px));
+  background:rgba(10,5,6,.78);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--line)}
+.logo{width:40px;height:40px;border-radius:12px;object-fit:cover;flex:none;
+  box-shadow:0 0 0 1px var(--line),0 6px 22px rgba(255,45,69,.35)}
+.logo.fallback{display:grid;place-items:center;font-weight:800;font-size:20px;color:#fff;
+  background:linear-gradient(135deg,var(--red),var(--red2))}
+.bar h1{font-size:20px;margin:0;font-weight:800;letter-spacing:-.3px}
+.wrap{max-width:720px;margin:0 auto;padding:26px 18px 70px}
+.hero{text-align:center;margin:10px 0 24px}
+.hero h2{font-size:30px;margin:0 0 8px;letter-spacing:-.8px}
+.hero h2 span{background:linear-gradient(90deg,var(--red),#ff7a5c);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero p{margin:0;color:var(--muted);font-size:15px}
+.drop{position:relative;background:linear-gradient(180deg,var(--panel2),var(--panel));
+  border:1.5px dashed #4a2a30;border-radius:22px;padding:44px 18px;text-align:center;cursor:pointer;
+  transition:.18s;box-shadow:0 10px 40px rgba(0,0,0,.4)}
+.drop:hover,.drop.over{border-color:var(--red);box-shadow:0 0 0 4px rgba(255,45,69,.12),0 10px 40px rgba(0,0,0,.5);transform:translateY(-1px)}
+.drop .ico{width:56px;height:56px;border-radius:16px;margin:0 auto 14px;display:grid;place-items:center;
+  background:linear-gradient(135deg,var(--red),var(--red2));box-shadow:0 8px 26px rgba(255,45,69,.4)}
+.drop .ico svg{width:28px;height:28px;stroke:#fff;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.drop b{display:block;font-size:18px;margin-bottom:5px}
+.drop small{color:var(--muted);font-size:13.5px}
+.keybox{display:none;margin-top:12px;gap:8px}
+.keybox.show{display:flex}
+input.field{flex:1;min-width:0;background:var(--panel);border:1px solid var(--line);color:var(--text);
+  border-radius:12px;padding:11px 13px;font-size:14px;font-family:inherit;outline:none}
+input.field:focus{border-color:var(--red)}
+.prog{display:none;margin-top:16px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+.prog.show{display:block}
+.prog .row{display:flex;justify-content:space-between;gap:10px;font-size:13.5px;margin-bottom:8px}
+.prog .row span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.track{height:7px;background:var(--panel2);border-radius:99px;overflow:hidden}
+.track i{display:block;height:100%;width:0;border-radius:99px;background:linear-gradient(90deg,var(--red2),var(--red));transition:width .15s}
+.msg{margin-top:12px;font-size:14px;color:var(--red);min-height:18px;text-align:center}
+.label{font-size:12.5px;letter-spacing:1.3px;text-transform:uppercase;color:var(--muted);margin:34px 0 12px;font-weight:700}
+.card{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);
+  border-radius:16px;padding:14px;margin-bottom:10px}
+.card .t{display:flex;justify-content:space-between;gap:10px;align-items:baseline;flex-wrap:wrap}
+.card .n{font-weight:700;word-break:break-all}
+.card .m{color:var(--muted);font-size:12.5px}
+.lnk{display:flex;gap:8px;margin-top:11px;flex-wrap:wrap}
+.lnk input{flex:1;min-width:170px;background:#0d0708;border:1px solid var(--line);color:var(--text);
+  border-radius:10px;padding:9px 11px;font-size:12.5px;font-family:ui-monospace,Menlo,Consolas,monospace}
+.btn{border:0;border-radius:10px;padding:9px 15px;font-weight:700;font-size:13.5px;cursor:pointer;
+  font-family:inherit;text-decoration:none;display:inline-flex;align-items:center;color:#fff;
+  background:linear-gradient(135deg,var(--red),var(--red2))}
+.btn:hover{filter:brightness(1.1)}
+.btn.ghost{background:transparent;border:1px solid var(--line);color:var(--text)}
+.btn.ghost:hover{border-color:var(--red);color:var(--red)}
+.empty{text-align:center;color:var(--muted);padding:26px;border:1px dashed var(--line);border-radius:16px;font-size:14px}
+.foot{text-align:center;color:var(--muted);font-size:12.5px;margin-top:34px}
+.hidden{display:none!important}
+.overlay{position:fixed;inset:0;z-index:20;display:none;align-items:center;justify-content:center;
+  background:rgba(10,5,6,.88);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);pointer-events:none}
+.overlay.show{display:flex}
+.overlay div{border:2px dashed var(--red);border-radius:26px;padding:60px 40px;margin:20px;text-align:center;
+  font-size:22px;font-weight:800;box-shadow:0 0 60px rgba(255,45,69,.3)}
+.overlay small{display:block;color:var(--muted);font-size:14px;font-weight:500;margin-top:8px}
+@media(max-width:560px){
+  .wrap{padding:20px 14px 60px}
+  .hero h2{font-size:25px}
+  .drop{padding:34px 14px}
+  input.field{font-size:16px}
+  .lnk input{flex:1 1 100%;font-size:16px;min-width:0}
+  .lnk .btn{flex:1 1 0;justify-content:center;min-height:44px;padding:10px 8px}
+  .card .t{flex-direction:column;gap:2px}
+  .btn{min-height:44px}
+}
+.drop .tapmsg{display:none}
+@media(hover:none) and (pointer:coarse){
+  .drop .dragmsg{display:none}.drop .tapmsg{display:inline}
+}
+
+.bar{justify-content:space-between}
+.gear{background:transparent;border:1px solid var(--line);color:var(--text);width:42px;height:42px;border-radius:12px;cursor:pointer;display:grid;place-items:center}
+.gear:hover{border-color:var(--red);color:var(--red)}
+.gear svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.panel{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);border-radius:18px;padding:18px;margin-bottom:18px}
+.panel h3{margin:0 0 4px;font-size:17px}
+.panel p{margin:0 0 12px;color:var(--muted);font-size:13.5px;line-height:1.5}
+.panel label{display:block;font-size:12.5px;color:var(--muted);margin:12px 0 6px;font-weight:600}
+.panel input.field{width:100%;font-size:16px}
+.panel ol{margin:12px 0 0;padding-left:20px;color:var(--muted);font-size:13px;line-height:1.6}
+.panel ol b{color:var(--text)}
+.panel .row{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+
+</style>
+</head>
+<body>
+<div class="overlay" id="overlay"><div>Drop to upload<small>Zips, exes, anything</small></div></div>
+<div class="bar">
+  <h1>Ability Share</h1>
+  <button class="gear" id="gear" aria-label="Settings" title="GitHub settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+</div>
+
+<div class="wrap">
+  <div class="hero">
+    <h2>Upload. Copy. <span>Share.</span></h2>
+    <p>Put a file in, get a raw download link anyone can use.</p>
+  </div>
+
+  <div class="panel hidden" id="setup">
+    <h3>Connect your GitHub repo</h3>
+    <p>Files are stored as release files in your own repo. Only you need the token. People you send links to don't.</p>
+    <label for="repo">Repo (owner/name)</label>
+    <input class="field" id="repo" placeholder="yourname/ability-share" autocapitalize="off" autocorrect="off" spellcheck="false">
+    <label for="token">Access token</label>
+    <input class="field" id="token" type="password" placeholder="github_pat_..." autocomplete="off">
+    <ol>
+      <li>GitHub, <b>Settings</b>, <b>Developer settings</b>, <b>Personal access tokens</b>, <b>Fine-grained tokens</b>, <b>Generate new token</b>.</li>
+      <li><b>Repository access:</b> only select repositories, pick this repo.</li>
+      <li><b>Permissions:</b> Contents, set to <b>Read and write</b>.</li>
+      <li>The repo must be <b>public</b>, or only you can download the files.</li>
+    </ol>
+    <div class="row">
+      <button class="btn" id="save">Save and connect</button>
+      <button class="btn ghost" id="forget">Remove token</button>
+    </div>
+    <div class="msg" id="setupmsg" style="text-align:left"></div>
+  </div>
+
+  <div class="drop" id="drop">
+    <div class="ico"><svg viewBox="0 0 24 24"><path d="M12 16V4M6 10l6-6 6 6M4 20h16"/></svg></div>
+    <b><span class="dragmsg">Drop a zip or any file here</span><span class="tapmsg">Tap to choose a file</span></b>
+    <small id="limit">Zips, exes, anything. Up to 2 GB per file.</small>
+    <input type="file" id="picker" class="hidden" multiple>
+  </div>
+
+  <div class="prog" id="prog">
+    <div class="row"><span id="pname"></span><span id="ppct"></span></div>
+    <div class="track"><i id="pfill"></i></div>
+  </div>
+  <div class="msg" id="msg"></div>
+
+  <div class="label">Your links</div>
+  <div id="list"></div>
+
+  <div class="foot">Files live in your GitHub repo as release files. Anyone with a link can download them.</div>
+</div>
+
+<script>
+(function(){
+  var $=function(i){return document.getElementById(i)};
+  var LS="ability-share-gh", TAG="files", MAX=2147483647; // GitHub: release files must be under 2 GiB
+  var API="https://api.github.com";
+  var cfg={repo:"",token:""}, rel=null, assets=[];
+  try{cfg=Object.assign(cfg,JSON.parse(localStorage.getItem(LS)||"{}"))}catch(e){}
+
+  function guessRepo(){
+    var h=location.hostname;
+    if(/\.github\.io$/.test(h)){
+      var o=h.split(".")[0], seg=location.pathname.split("/")[1]||"";
+      return o+"/"+((seg&&seg.indexOf(".")<0)?seg:o+".github.io");
+    }
+    return "";
+  }
+  function saveCfg(){try{localStorage.setItem(LS,JSON.stringify(cfg))}catch(e){}}
+  function fmt(n){return n<1024?n+" B":n<1048576?(n/1024).toFixed(1)+" KB":n<1073741824?(n/1048576).toFixed(1)+" MB":(n/1073741824).toFixed(2)+" GB"}
+  function msg(t,good){var m=$("msg");m.textContent=t||"";m.style.color=good?"var(--ok)":"var(--red)"}
+  function smsg(t,good){var m=$("setupmsg");m.textContent=t||"";m.style.color=good?"var(--ok)":"var(--red)"}
+  function ready(){return cfg.repo&&cfg.token}
+
+  function hdr(json){
+    var h={"Accept":"application/vnd.github+json"};
+    if(cfg.token)h["Authorization"]="Bearer "+cfg.token;
+    if(json)h["Content-Type"]="application/json";
+    return h;
+  }
+  function okjson(r){
+    if(r.ok)return r.json();
+    var e=new Error("http");e.status=r.status;throw e;
+  }
+  function ghErr(st){
+    if(st===401)return "GitHub rejected the token. Check it hasn't expired or been mistyped.";
+    if(st===403)return "GitHub says no (HTTP 403). The token needs Contents: Read and write on this repo, or you hit a rate limit.";
+    if(st===404)return "Repo not found, or the token can't see it. Check the name (owner/name) and the token's repo access.";
+    if(st===422)return "GitHub refused that (HTTP 422). The repo may be empty, so add a commit first.";
+    return "GitHub returned an error (HTTP "+st+").";
+  }
+
+  function getRelease(create){
+    return fetch(API+"/repos/"+cfg.repo+"/releases/tags/"+TAG,{headers:hdr()}).then(function(r){
+      if(r.status===404){
+        if(!create)return null;
+        return fetch(API+"/repos/"+cfg.repo+"/releases",{method:"POST",headers:hdr(true),
+          body:JSON.stringify({tag_name:TAG,name:"Ability Share files",body:"Files uploaded with Ability Share.",draft:false,prerelease:false})}).then(okjson);
+      }
+      return okjson(r);
+    });
+  }
+
+  function refresh(){
+    if(!ready()){assets=[];render();return Promise.resolve()}
+    return getRelease(false).then(function(r){
+      rel=r;assets=r&&r.assets?r.assets.slice():[];
+      assets.sort(function(a,b){return new Date(b.created_at)-new Date(a.created_at)});
+      render();
+    }).catch(function(e){msg(e.status?ghErr(e.status):"Couldn't reach GitHub.")});
+  }
+
+  function render(){
+    var l=$("list");l.textContent="";
+    if(!ready()){var e0=document.createElement("div");e0.className="empty";e0.textContent="Connect your repo with the gear button to start.";l.appendChild(e0);return}
+    if(!assets.length){var e=document.createElement("div");e.className="empty";e.textContent="No links yet. Upload a file to get one.";l.appendChild(e);return}
+    assets.forEach(function(f){
+      var c=document.createElement("div");c.className="card";
+      var t=document.createElement("div");t.className="t";
+      var n=document.createElement("div");n.className="n";n.textContent=f.name;
+      var m=document.createElement("div");m.className="m";m.textContent=fmt(f.size)+" \u00b7 "+new Date(f.created_at).toLocaleDateString();
+      t.appendChild(n);t.appendChild(m);c.appendChild(t);
+      var row=document.createElement("div");row.className="lnk";
+      var inp=document.createElement("input");inp.readOnly=true;inp.value=f.browser_download_url;
+      inp.addEventListener("focus",function(){inp.select()});
+      var cp=document.createElement("button");cp.className="btn";cp.textContent="Copy link";
+      cp.addEventListener("click",function(){
+        var ok=function(){cp.textContent="Copied!";setTimeout(function(){cp.textContent="Copy link"},1300)};
+        if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(inp.value).then(ok,function(){inp.select();document.execCommand("copy");ok()});
+        else{inp.select();document.execCommand("copy");ok()}
+      });
+      var op=document.createElement("a");op.className="btn ghost";op.textContent="Open";op.href=f.browser_download_url;op.target="_blank";op.rel="noopener";
+      var del=document.createElement("button");del.className="btn ghost";del.textContent="Delete";
+      del.addEventListener("click",function(){
+        if(!confirm("Delete \""+f.name+"\"? The link will stop working for everyone."))return;
+        fetch(API+"/repos/"+cfg.repo+"/releases/assets/"+f.id,{method:"DELETE",headers:hdr()}).then(function(r){
+          if(r.ok||r.status===404){msg("");refresh()}else msg(ghErr(r.status));
+        }).catch(function(){msg("Couldn't reach GitHub.")});
+      });
+      row.appendChild(inp);row.appendChild(cp);row.appendChild(op);row.appendChild(del);
+      c.appendChild(row);l.appendChild(c);
+    });
+  }
+
+  function cleanName(n){
+    n=String(n||"file").replace(/[^A-Za-z0-9._-]+/g,"_").replace(/^[._]+/,"");
+    return (n||"file").slice(0,100);
+  }
+  function xhrUp(name,file){
+    return new Promise(function(res){
+      var x=new XMLHttpRequest();
+      x.open("POST","https://uploads.github.com/repos/"+cfg.repo+"/releases/"+rel.id+"/assets?name="+encodeURIComponent(name));
+      x.setRequestHeader("Authorization","Bearer "+cfg.token);
+      x.setRequestHeader("Accept","application/vnd.github+json");
+      x.setRequestHeader("Content-Type",file.type||"application/octet-stream");
+      $("prog").classList.add("show");$("pname").textContent=file.name;
+      x.upload.onprogress=function(e){if(e.lengthComputable){var p=Math.round(e.loaded/e.total*100);$("pfill").style.width=p+"%";$("ppct").textContent=p+"%"}};
+      x.onload=function(){var j={};try{j=JSON.parse(x.responseText)}catch(e){}res({status:x.status,json:j})};
+      x.onerror=function(){res({status:0})};
+      x.send(file);
+    });
+  }
+  function upload(file){
+    if(file.size>=MAX){msg("\""+file.name+"\" is over GitHub's 2 GB limit per file.");return Promise.resolve()}
+    if(file.size===0){msg("\""+file.name+"\" is empty.");return Promise.resolve()}
+    var name=cleanName(file.name);
+    return xhrUp(name,file).then(function(r){
+      if(r.status===422)return xhrUp(Math.random().toString(36).slice(2,8)+"-"+name,file); // name already taken
+      return r;
+    }).then(function(r){
+      if(r.status===201){assets.unshift(r.json);render();return}
+      if(r.status===0)msg("Couldn't upload to GitHub. Check your connection, or an ad blocker may be blocking uploads.github.com.");
+      else msg(ghErr(r.status));
+    });
+  }
+
+  function go(fl){
+    if(!ready()){msg("Connect your GitHub repo first (gear button).");$("setup").classList.remove("hidden");return}
+    var arr=Array.prototype.slice.call(fl);msg("");
+    getRelease(true).then(function(r){
+      rel=r;
+      (function next(i){
+        if(i>=arr.length){
+          setTimeout(function(){$("prog").classList.remove("show");$("pfill").style.width="0"},600);
+          return refresh();
+        }
+        upload(arr[i]).then(function(){next(i+1)});
+      })(0);
+    }).catch(function(e){msg(e.status?ghErr(e.status):"Couldn't reach GitHub.")});
+  }
+
+  // settings
+  var setup=$("setup");
+  $("gear").addEventListener("click",function(){setup.classList.toggle("hidden")});
+  $("save").addEventListener("click",function(){
+    var repo=$("repo").value.trim().replace(/^https?:\/\/github\.com\//,"").replace(/\.git$/,"").replace(/\/+$/,"");
+    var tok=$("token").value.trim();
+    if(!/^[\w.-]+\/[\w.-]+$/.test(repo)){smsg("Repo should look like yourname/ability-share");return}
+    if(!tok){smsg("Paste your access token.");return}
+    cfg.repo=repo;cfg.token=tok;smsg("Checking\u2026",true);
+    fetch(API+"/repos/"+repo,{headers:hdr()}).then(okjson).then(function(r){
+      saveCfg();$("token").value="";
+      smsg(r.private?"Connected, but this repo is private, so only you can download files. Make it public for sharing.":"Connected.",!r.private);
+      setTimeout(function(){setup.classList.add("hidden")},r.private?4000:900);
+      return refresh();
+    }).catch(function(e){cfg.token="";smsg(e.status?ghErr(e.status):"Couldn't reach GitHub.")});
+  });
+  $("forget").addEventListener("click",function(){
+    cfg.token="";saveCfg();$("token").value="";assets=[];render();smsg("Token removed from this browser.",true);
+  });
+
+  // pick / drag and drop
+  var drop=$("drop"),pick=$("picker"),depth=0;
+  drop.addEventListener("click",function(){pick.click()});
+  pick.addEventListener("change",function(){go(pick.files);pick.value=""});
+  function dropped(e){
+    e.preventDefault();depth=0;$("overlay").classList.remove("show");drop.classList.remove("over");
+    var dt=e.dataTransfer;if(!dt)return;
+    var folder=false;
+    if(dt.items)for(var i=0;i<dt.items.length;i++){
+      var en=dt.items[i].webkitGetAsEntry&&dt.items[i].webkitGetAsEntry();
+      if(en&&en.isDirectory)folder=true;
+    }
+    if(folder){msg("Folders can't be uploaded. Zip it first, then drop the zip.");return}
+    if(dt.files&&dt.files.length)go(dt.files);
+  }
+  function hasFiles(e){var t=e.dataTransfer&&e.dataTransfer.types;return t&&Array.prototype.indexOf.call(t,"Files")>-1}
+  ["dragenter","dragover"].forEach(function(ev){drop.addEventListener(ev,function(e){e.preventDefault();drop.classList.add("over")})});
+  drop.addEventListener("dragleave",function(){drop.classList.remove("over")});
+  drop.addEventListener("drop",function(e){e.stopPropagation();dropped(e)});
+  window.addEventListener("dragenter",function(e){if(!hasFiles(e))return;e.preventDefault();depth++;$("overlay").classList.add("show")});
+  window.addEventListener("dragover",function(e){if(hasFiles(e))e.preventDefault()});
+  window.addEventListener("dragleave",function(e){if(!hasFiles(e))return;depth=Math.max(0,depth-1);if(!depth)$("overlay").classList.remove("show")});
+  window.addEventListener("drop",function(e){if(hasFiles(e))dropped(e)});
+
+  $("repo").value=cfg.repo||guessRepo();
+  if(!ready())setup.classList.remove("hidden");
+  render();refresh();
+})();
+</script>
+</body>
+</html>
