@@ -162,6 +162,7 @@ input.field:focus{border-color:var(--red)}
     <div class="track"><i id="pfill"></i></div>
   </div>
   <div class="msg" id="msg"></div>
+  <div class="msg hidden" id="bignote" style="color:var(--muted);font-size:13px;line-height:1.5"></div>
 
   <div class="label">Your links</div>
   <div id="list"></div>
@@ -220,27 +221,53 @@ input.field:focus{border-color:var(--red)}
     });
   }
 
+  var BLOCK="ability-share-relblocked", FILE_MAX=70*1024*1024; // browsers can't reach uploads.github.com, so fall back to repo files (about 70 MB)
+  var files=[], branch=null, blocked=false;
+  try{blocked=localStorage.getItem(BLOCK)==="1"}catch(e){}
+
+  function setLimit(){
+    $("limit").textContent=blocked?"Zips, exes, anything. Up to 70 MB per file.":"Zips, exes, anything. Up to 2 GB per file.";
+  }
+  function getBranch(){
+    if(branch)return Promise.resolve(branch);
+    return fetch(API+"/repos/"+cfg.repo,{headers:hdr()}).then(okjson).then(function(r){branch=r.default_branch||"main";return branch});
+  }
+  function rawUrl(name){return "https://raw.githubusercontent.com/"+cfg.repo+"/"+(branch||"main")+"/uploads/"+encodeURIComponent(name)}
+  function listFiles(){
+    return fetch(API+"/repos/"+cfg.repo+"/contents/uploads",{headers:hdr()}).then(function(r){
+      if(r.status===404)return [];
+      return okjson(r);
+    }).then(function(a){return Array.isArray(a)?a.filter(function(x){return x.type==="file"}):[]});
+  }
+
   function refresh(){
-    if(!ready()){assets=[];render();return Promise.resolve()}
-    return getRelease(false).then(function(r){
-      rel=r;assets=r&&r.assets?r.assets.slice():[];
+    if(!ready()){assets=[];files=[];render();return Promise.resolve()}
+    return Promise.all([getRelease(false),listFiles(),getBranch()]).then(function(v){
+      rel=v[0];assets=rel&&rel.assets?rel.assets.slice():[];files=v[1];
       assets.sort(function(a,b){return new Date(b.created_at)-new Date(a.created_at)});
       render();
     }).catch(function(e){msg(e.status?ghErr(e.status):"Couldn't reach GitHub.")});
   }
 
+  function entries(){
+    var a=files.slice().reverse().map(function(f){return {kind:"file",name:f.name,size:f.size,sha:f.sha,url:rawUrl(f.name)}});
+    var b=assets.map(function(x){return {kind:"release",id:x.id,name:x.name,size:x.size,date:x.created_at,url:x.browser_download_url}});
+    return a.concat(b);
+  }
+
   function render(){
     var l=$("list");l.textContent="";
     if(!ready()){var e0=document.createElement("div");e0.className="empty";e0.textContent="Connect your repo with the gear button to start.";l.appendChild(e0);return}
-    if(!assets.length){var e=document.createElement("div");e.className="empty";e.textContent="No links yet. Upload a file to get one.";l.appendChild(e);return}
-    assets.forEach(function(f){
+    var all=entries();
+    if(!all.length){var e=document.createElement("div");e.className="empty";e.textContent="No links yet. Upload a file to get one.";l.appendChild(e);return}
+    all.forEach(function(f){
       var c=document.createElement("div");c.className="card";
       var t=document.createElement("div");t.className="t";
       var n=document.createElement("div");n.className="n";n.textContent=f.name;
-      var m=document.createElement("div");m.className="m";m.textContent=fmt(f.size)+" \u00b7 "+new Date(f.created_at).toLocaleDateString();
+      var m=document.createElement("div");m.className="m";m.textContent=fmt(f.size)+(f.date?" \u00b7 "+new Date(f.date).toLocaleDateString():"");
       t.appendChild(n);t.appendChild(m);c.appendChild(t);
       var row=document.createElement("div");row.className="lnk";
-      var inp=document.createElement("input");inp.readOnly=true;inp.value=f.browser_download_url;
+      var inp=document.createElement("input");inp.readOnly=true;inp.value=f.url;
       inp.addEventListener("focus",function(){inp.select()});
       var cp=document.createElement("button");cp.className="btn";cp.textContent="Copy link";
       cp.addEventListener("click",function(){
@@ -248,11 +275,14 @@ input.field:focus{border-color:var(--red)}
         if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(inp.value).then(ok,function(){inp.select();document.execCommand("copy");ok()});
         else{inp.select();document.execCommand("copy");ok()}
       });
-      var op=document.createElement("a");op.className="btn ghost";op.textContent="Open";op.href=f.browser_download_url;op.target="_blank";op.rel="noopener";
+      var op=document.createElement("a");op.className="btn ghost";op.textContent="Open";op.href=f.url;op.target="_blank";op.rel="noopener";
       var del=document.createElement("button");del.className="btn ghost";del.textContent="Delete";
       del.addEventListener("click",function(){
         if(!confirm("Delete \""+f.name+"\"? The link will stop working for everyone."))return;
-        fetch(API+"/repos/"+cfg.repo+"/releases/assets/"+f.id,{method:"DELETE",headers:hdr()}).then(function(r){
+        var req=f.kind==="release"
+          ?fetch(API+"/repos/"+cfg.repo+"/releases/assets/"+f.id,{method:"DELETE",headers:hdr()})
+          :fetch(API+"/repos/"+cfg.repo+"/contents/uploads/"+encodeURIComponent(f.name),{method:"DELETE",headers:hdr(true),body:JSON.stringify({message:"Delete "+f.name,sha:f.sha})});
+        req.then(function(r){
           if(r.ok||r.status===404){msg("");refresh()}else msg(ghErr(r.status));
         }).catch(function(){msg("Couldn't reach GitHub.")});
       });
@@ -265,47 +295,109 @@ input.field:focus{border-color:var(--red)}
     n=String(n||"file").replace(/[^A-Za-z0-9._-]+/g,"_").replace(/^[._]+/,"");
     return (n||"file").slice(0,100);
   }
-  function xhrUp(name,file){
+  function progress(name,x){
+    $("prog").classList.add("show");$("pname").textContent=name;$("pfill").style.width="0";$("ppct").textContent="0%";
+    x.upload.onprogress=function(e){if(e.lengthComputable){var p=Math.round(e.loaded/e.total*100);$("pfill").style.width=p+"%";$("ppct").textContent=p+"%"}};
+  }
+  // Route 1: release file (up to 2 GB). GitHub may block this from a web page.
+  function xhrRelease(name,file){
     return new Promise(function(res){
       var x=new XMLHttpRequest();
       x.open("POST","https://uploads.github.com/repos/"+cfg.repo+"/releases/"+rel.id+"/assets?name="+encodeURIComponent(name));
       x.setRequestHeader("Authorization","Bearer "+cfg.token);
       x.setRequestHeader("Accept","application/vnd.github+json");
       x.setRequestHeader("Content-Type",file.type||"application/octet-stream");
-      $("prog").classList.add("show");$("pname").textContent=file.name;
-      x.upload.onprogress=function(e){if(e.lengthComputable){var p=Math.round(e.loaded/e.total*100);$("pfill").style.width=p+"%";$("ppct").textContent=p+"%"}};
+      progress(file.name,x);
       x.onload=function(){var j={};try{j=JSON.parse(x.responseText)}catch(e){}res({status:x.status,json:j})};
       x.onerror=function(){res({status:0})};
       x.send(file);
     });
   }
-  function upload(file){
-    if(file.size>=MAX){msg("\""+file.name+"\" is over GitHub's 2 GB limit per file.");return Promise.resolve()}
-    if(file.size===0){msg("\""+file.name+"\" is empty.");return Promise.resolve()}
+  // Route 2: a file in the repo's uploads folder (about 70 MB). api.github.com allows web pages.
+  function toBase64(file){
+    return new Promise(function(res,rej){
+      var r=new FileReader();
+      r.onload=function(){res(String(r.result).split(",")[1]||"")};
+      r.onerror=function(){rej()};
+      r.readAsDataURL(file);
+    });
+  }
+  function xhrFile(name,file,b64){
+    return new Promise(function(res){
+      var x=new XMLHttpRequest();
+      x.open("PUT",API+"/repos/"+cfg.repo+"/contents/uploads/"+encodeURIComponent(name));
+      x.setRequestHeader("Authorization","Bearer "+cfg.token);
+      x.setRequestHeader("Accept","application/vnd.github+json");
+      x.setRequestHeader("Content-Type","application/json");
+      progress(file.name,x);
+      x.onload=function(){var j={};try{j=JSON.parse(x.responseText)}catch(e){}res({status:x.status,json:j})};
+      x.onerror=function(){res({status:0})};
+      x.send(JSON.stringify({message:"Upload "+name,content:b64}));
+    });
+  }
+  function uploadAsFile(file){
     var name=cleanName(file.name);
-    return xhrUp(name,file).then(function(r){
-      if(r.status===422)return xhrUp(Math.random().toString(36).slice(2,8)+"-"+name,file); // name already taken
+    msg("");$("prog").classList.add("show");$("pname").textContent="Preparing "+file.name+"\u2026";
+    return toBase64(file).then(function(b64){
+      return getBranch().then(function(){
+        return xhrFile(name,file,b64).then(function(r){
+          if(r.status===422||r.status===409)return xhrFile(Math.random().toString(36).slice(2,8)+"-"+name,file,b64); // name already taken
+          return r;
+        });
+      });
+    }).then(function(r){
+      if(r.status===201||r.status===200){refreshSoon();return}
+      if(r.status===0)msg("Couldn't reach GitHub. Check your connection.");
+      else if(r.status===403)msg("GitHub says no (HTTP 403). The token needs Contents: Read and write on this repo.");
+      else msg(ghErr(r.status));
+    },function(){msg("Couldn't read that file.")});
+  }
+  var refreshTimer=null;
+  function refreshSoon(){clearTimeout(refreshTimer);refreshTimer=setTimeout(refresh,400)}
+
+  function upload(file){
+    if(file.size===0){msg("\""+file.name+"\" is empty.");return Promise.resolve()}
+    if(blocked){
+      if(file.size>FILE_MAX){msg("\""+file.name+"\" is over about 70 MB. See the note below on adding big files.");bigNote();return Promise.resolve()}
+      return uploadAsFile(file);
+    }
+    if(file.size>=MAX){msg("\""+file.name+"\" is over GitHub's 2 GB limit per file.");return Promise.resolve()}
+    var name=cleanName(file.name);
+    return getRelease(true).then(function(r){
+      rel=r;
+      return xhrRelease(name,file);
+    }).then(function(r){
+      if(r.status===422)return xhrRelease(Math.random().toString(36).slice(2,8)+"-"+name,file);
       return r;
     }).then(function(r){
       if(r.status===201){assets.unshift(r.json);render();return}
-      if(r.status===0)msg("Couldn't upload to GitHub. Check your connection, or an ad blocker may be blocking uploads.github.com.");
-      else msg(ghErr(r.status));
+      if(r.status===0){
+        // The browser blocked the release upload. Remember that and use the repo-files route.
+        blocked=true;try{localStorage.setItem(BLOCK,"1")}catch(e){}
+        setLimit();
+        if(file.size>FILE_MAX){msg("GitHub doesn't let web pages upload files this big (over about 70 MB).");bigNote();return}
+        return uploadAsFile(file);
+      }
+      msg(ghErr(r.status));
     });
+  }
+
+  function bigNote(){
+    var n=$("bignote");
+    n.textContent="To add a file over 70 MB: on GitHub open your repo, go to Releases, edit the release named files, and drag the file into it (up to 2 GB). Save it and it shows up in this list.";
+    n.classList.remove("hidden");
   }
 
   function go(fl){
     if(!ready()){msg("Connect your GitHub repo first (gear button).");$("setup").classList.remove("hidden");return}
     var arr=Array.prototype.slice.call(fl);msg("");
-    getRelease(true).then(function(r){
-      rel=r;
-      (function next(i){
-        if(i>=arr.length){
-          setTimeout(function(){$("prog").classList.remove("show");$("pfill").style.width="0"},600);
-          return refresh();
-        }
-        upload(arr[i]).then(function(){next(i+1)});
-      })(0);
-    }).catch(function(e){msg(e.status?ghErr(e.status):"Couldn't reach GitHub.")});
+    (function next(i){
+      if(i>=arr.length){
+        setTimeout(function(){$("prog").classList.remove("show");$("pfill").style.width="0"},600);
+        return refresh();
+      }
+      upload(arr[i]).then(function(){next(i+1)},function(e){msg(e&&e.status?ghErr(e.status):"Couldn't reach GitHub.");next(i+1)});
+    })(0);
   }
 
   // settings
@@ -354,7 +446,7 @@ input.field:focus{border-color:var(--red)}
 
   $("repo").value=cfg.repo||guessRepo();
   if(!ready())setup.classList.remove("hidden");
-  render();refresh();
+  setLimit();render();refresh();
 })();
 </script>
 </body>
