@@ -16,13 +16,16 @@ The token is saved only in that browser. Never put it in the repo.
 
 ## How it works
 
-Files go into one release called `files`. Each one gets a link like
-`github.com/you/repo/releases/download/files/name.zip` that downloads directly. The list on the page is read
-from that release, so it shows on any device where you've entered the token. Delete removes the file from the release.
+Browsers can't upload to GitHub's release storage directly, so the page saves files in an `uploads` folder in your repo.
+Links look like `raw.githubusercontent.com/you/repo/main/uploads/name.zip`. The list on the page is read from the repo,
+so it shows on any device where you've entered the token. Delete removes the file from the repo.
+
+For files bigger than about 70 MB: on GitHub open your repo, go to **Releases**, create or edit a release with the tag `files`,
+and drag the file in (up to 2 GB). Those files show up in the page's list too, with direct download links.
 
 ## GitHub's limits
 
-- 2 GB per file (GitHub's cap for release files), any file type including zip and exe
-- About 1000 files in this release
+- About 70 MB per file when uploading through the page, 2 GB per file when added through the Releases page
+- Any file type, including zip and exe
 - The repo must be public for other people to download
 - Folders can't be uploaded, zip them first
